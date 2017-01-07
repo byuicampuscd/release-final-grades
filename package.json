@@ -1,0 +1,25 @@
+{
+    "name": "release-final-grades",
+    "version": "1.0.0",
+    "description": "runs through the d2l courses by ou and then makes csv report",
+    "main": "releaseGrades.js",
+    "dependencies": {
+        "d3-dsv": "^1.0.3",
+        "nightmare": "^2.8.1",
+        "nightmare-helpers": "byuicampuscd/nightmare-helpers"
+    },
+    "devDependencies": {},
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/byuicampuscd/release-final-grades.git"
+    },
+    "author": "Joshua McKinney",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/byuicampuscd/release-final-grades/issues"
+    },
+    "homepage": "https://github.com/byuicampuscd/release-final-grades#readme"
+}
