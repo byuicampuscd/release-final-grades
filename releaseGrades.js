@@ -2,21 +2,25 @@
 /* eslint no-console:0 */
 
 var fs = require('fs'),
+    dsv = require('d3-dsv'),
     Nightmare = require('nightmare');
-//switch to nightmare-download-manager for more control and feed back on download proccess
-require('./main.js')(Nightmare);
+
+require('nightmare-helpers')(Nightmare);
 
 
 var nightmare = Nightmare({
     show: true,
     typeInterval: 20,
     alwaysOnTop: false,
-    openDevTools: {
-        mode: 'detach'
-    },
+    //    openDevTools: {
+    //        mode: 'detach'
+    //    },
     waitTimeout: 2 * 60 * 1000
 });
 
+var courses = dsv.csvParse(fs.readFileSync("./ousSmall.csv", "utf8")),
+    authData = JSON.parse(fs.readFileSync("./auth.json", "utf8")),
+    errors = [];
 
 function catchConsole() {
     nightmare.on('console', function (type, data) {
@@ -27,35 +31,76 @@ function catchConsole() {
     });
 }
 
-//catchConsole
-catchConsole();
+function getCheckCounts() {
+    return {
+        studentCount: document.querySelectorAll("form div>table[summary] td:nth-child(8) input").length,
+        checkedCount: document.querySelectorAll("form div>table[summary] td:nth-child(8) input:checked").length
+    };
 
-//until the user interface works, we will use this for now.
-var authData = JSON.parse(fs.readFileSync("./auth.json"));
-var ous = [
-    "10011",
-    "21077"
-]
-var errors = [];
+}
+
 
 function done(nightmare) {
-    var errFileName = "Errors.txt";
+    var errFileName = "Errors.json";
+    var coursesFileName = "courses.csv";
     nightmare
         .end()
         .then(function () {
-            console.log("Finished All");
+            //write out the errors
             if (errors.length > 0) {
                 console.log("Some OUs didn't work. Look in the file " + errFileName);
                 fs.writeFileSync(errFileName, JSON.stringify(errors, null, 4), "utf8");
             }
+
+            //write out the successes
+            fs.writeFileSync(coursesFileName, dsv.csvFormat(courses, ["name", "ou", "studentCountB", "checkedCountB", "studentCount", "checkedCount"]), "utf8");
+            console.log('See "' + coursesFileName + '" for data.');
+            console.log("Finished All");
         });
 }
 
-
-
 function releaseFinalGrade(index, nightmare) {
+    nightmare
+        .click('.d2l-heading a:first-of-type')
+        .click('.vui-dropdown-menu ul li:last-of-type a')
+        .click('table a.vui-button-primary')
+        .wait(function () {
+
+            var i,
+                eles = document.querySelectorAll('[role="alert"]'),
+                done = false;
+            for (i = 0; i < eles.length; ++i) {
+                done = done || eles[i].innerText.search(/Saved successfully/i) > -1;
+            }
+
+            return done;
+        })
+        .evaluate(getCheckCounts)
+        .then(function (data) {
+
+            courses[index].studentCount = data.studentCount;
+            courses[index].checkedCount = data.checkedCount;
+
+            console.log("Done with " + courses[index].name);
+            goToNextCourse(index, nightmare);
+        })
+        .catch(function (e) {
+            console.log("Error with " + courses[index].name);
+            errors.push({
+                index: index,
+                course: courses[index],
+                error: e
+            });
+            console.log("Done with " + courses[index].name);
+            goToNextCourse(index, nightmare);
+        });
+
+}
+
+
+function goToNextCourse(index, nightmare) {
     index += 1;
-    if (index === ous.length) {
+    if (index === courses.length) {
         done(nightmare);
         return;
     }
@@ -63,42 +108,40 @@ function releaseFinalGrade(index, nightmare) {
 
     nightmare
         .run(function () {
-            console.log("Starting " + ous[index]);
+            console.log((index + 1) + ":", "Starting " + courses[index].name);
         })
-        .goto("https://byui.brightspace.com/d2l/lms/grades/admin/enter/grade_final_edit.d2l?ou=" + ous[index])
-        .wait(function () {
-            console.log("checkboxes count: " + $("form div>table[summary] td:nth-child(8) input").length);
-            console.log("checked    count: " + $("form div>table[summary] td:nth-child(8) input:checked").length);
-            return true;
-        })
-        //        .click('.d2l-heading a:first-of-type')
-        //        .click('.vui-dropdown-menu ul li:last-of-type a')
-        //        .click('table a.vui-button-primary')
-        //        .wait(function () {
-        //
-        //            var i,
-        //                eles = document.querySelectorAll('[role="alert"]'),
-        //                done = false;
-        //            for (i = 0; i < eles.length; ++i) {
-        //                done = done || eles[i].innerText.search(/Saved successfully/i) > -1;
-        //            }
-        //
-        //            return done;
-        //        })
-        .then(function () {
-            console.log("Done with " + ous[index]);
-            releaseFinalGrade(index, nightmare);
+        .goto("https://byui.brightspace.com/d2l/lms/grades/admin/enter/grade_final_edit.d2l?ou=" + courses[index].ou)
+        //make sure there are students in the course
+        .evaluate(getCheckCounts)
+        .then(function (data) {
+            courses[index].studentCountB = data.studentCount;
+            courses[index].checkedCountB = data.checkedCount;
+
+            //are there students here?
+            if (data.studentCount === 0) {
+                courses[index].studentCount = data.studentCount;
+                courses[index].checkedCount = data.checkedCount;
+                console.log("Done with " + courses[index].name);
+                goToNextCourse(index, nightmare);
+
+            } else {
+                releaseFinalGrade(index, nightmare);
+            }
+
         })
         .catch(function (e) {
-            console.log("Error with " + ous[index]);
+            console.log("Error with " + courses[index].name);
             errors.push({
                 index: index,
-                ou: ous[index],
+                course: courses[index],
                 error: e
             });
-            releaseFinalGrade(index, nightmare);
+            goToNextCourse(index, nightmare);
         });
 }
+
+//Comment this out if you don't want it to catch the console.log's
+catchConsole();
 
 nightmare
     .goto('https://byui.brightspace.com/d2l/login?noredirect=1')
@@ -117,21 +160,9 @@ nightmare
     .wait("#ILoggedIn")
     .waitURL("https://byui.brightspace.com/d2l/home")
     .then(function () {
-        releaseFinalGrade(-1, nightmare);
+        goToNextCourse(-1, nightmare);
     })
-
-
-
-
-
-//go to check box page 
-/*
-.goto("https://byui.brightspace.com/d2l/lms/importExport/export/export_select_components.d2l?ou=" + ou)
-    .wait('input[name="checkAll"]')
-    .click('input[name="checkAll"]')
-    .click('a.vui-button-primary')
-    //go to confirm page
-    .wait(function (ou) {
-        return document.location.href === "https://byui.brightspace.com/d2l/lms/importExport/export/export_select_confirm.d2l?ou=" + ou;
-    }, ou)
-*/
+    .catch(function (e) {
+        errors.push(e);
+        //goToNextCourse(index, nightmare);
+    });
