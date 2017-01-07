@@ -18,7 +18,7 @@ var nightmare = Nightmare({
     waitTimeout: 2 * 60 * 1000
 });
 
-var courses = dsv.csvParse(fs.readFileSync("./ousSmall.csv", "utf8")),
+var courses = dsv.csvParse(fs.readFileSync("./ous.csv", "utf8")),
     authData = JSON.parse(fs.readFileSync("./auth.json", "utf8")),
     errors = [];
 
@@ -141,10 +141,10 @@ function goToNextCourse(index, nightmare) {
 }
 
 //Comment this out if you don't want it to catch the console.log's
-catchConsole();
+//catchConsole();
 
 nightmare
-    .goto('https://byui.brightspace.com/d2l/login?noredirect=1')
+      .goto('https://byui.brightspace.com/d2l/login?noredirect=1')
     .evaluate(function () {
         document.querySelector('a.vui-button-primary').addEventListener('click', function addClick() {
             var ele = document.createElement("div");
@@ -156,13 +156,19 @@ nightmare
     })
     .type("#userName", authData.username)
     .type("#password", authData.password)
-    //    .click("a.vui-button-primary")
+
+    //.click("a.vui-button-primary")
     .wait("#ILoggedIn")
     .waitURL("https://byui.brightspace.com/d2l/home")
+    //set it to 200 students a screen
+    .goto("https://byui.brightspace.com/d2l/lms/grades/admin/enter/grade_final_edit.d2l?ou=10011")
+    .select('[title="Results Per Page"]', "200")
+    .waitURL("d2l_change=0")
     .then(function () {
+      console.log("Set 200 students per page");
         goToNextCourse(-1, nightmare);
     })
     .catch(function (e) {
         errors.push(e);
-        //goToNextCourse(index, nightmare);
+        goToNextCourse(-1, nightmare);
     });
