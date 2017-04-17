@@ -3,3 +3,4 @@ node_modules
 *.json
 !testOus.csv
 !package.json
+auth.json
