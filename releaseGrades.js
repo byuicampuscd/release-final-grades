@@ -112,6 +112,8 @@ function goToNextCourse(index, nightmare) {
         })
         .goto("https://byui.brightspace.com/d2l/lms/grades/admin/enter/grade_final_edit.d2l?ou=" + courses[index].ou)
         //make sure there are students in the course
+        .select('[title="Results Per Page"]', "200")
+        .waitURL("d2l_change=")
         .evaluate(getCheckCounts)
         .then(function (data) {
             courses[index].studentCountB = data.studentCount;
@@ -145,25 +147,8 @@ function goToNextCourse(index, nightmare) {
 
 nightmare
       .goto('https://byui.brightspace.com/d2l/login?noredirect=1')
-    .evaluate(function () {
-        document.querySelector('a.vui-button-primary').addEventListener('click', function addClick() {
-            var ele = document.createElement("div");
-            ele.setAttribute('id', "ILoggedIn")
-            document.body.appendChild(ele);
-        }, {
-            once: true
-        });
-    })
-    .type("#userName", authData.username)
-    .type("#password", authData.password)
-
-    //.click("a.vui-button-primary")
-    .wait("#ILoggedIn")
-    .waitURL("https://byui.brightspace.com/d2l/home")
-    //set it to 200 students a screen
-    .goto("https://byui.brightspace.com/d2l/lms/grades/admin/enter/grade_final_edit.d2l?ou=10011")
-    .select('[title="Results Per Page"]', "200")
-    .waitURL("d2l_change=0")
+       //wait for user to log in 
+       .waitURL("https://byui.brightspace.com/d2l/home")
     .then(function () {
       console.log("Set 200 students per page");
         goToNextCourse(-1, nightmare);
