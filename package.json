@@ -16,10 +16,11 @@
         "type": "git",
         "url": "git+https://github.com/byuicampuscd/release-final-grades.git"
     },
-    "author": "Joshua McKinney",
-    "license": "MIT",
     "bugs": {
         "url": "https://github.com/byuicampuscd/release-final-grades/issues"
     },
-    "homepage": "https://github.com/byuicampuscd/release-final-grades#readme"
+    "homepage": "https://github.com/byuicampuscd/release-final-grades#readme",
+    
+    "author": "Joshua McKinney",
+    "license": "MIT"
 }
